@@ -1,0 +1,20 @@
+/*
+ * The badge is a CornerPill; this only styles what goes inside it.
+ */
+
+/* Thin rule between the mark and the count, like GitHub's own star button. */
+.divider {
+  inline-size: 1px;
+  block-size: 14px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+/*
+ * The count is the one thing on the page whose width can change between
+ * deploys. Tabular figures keep "1.2k" and "1.7k" the same width so the pill
+ * does not shift.
+ */
+.count {
+  font-variant-numeric: tabular-nums;
+}
