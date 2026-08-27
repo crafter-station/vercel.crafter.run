@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/*
+ * The hero animation paints against a specific ground:
+ *   dark  - #000, because the shader outputs an opaque near-black frame that is
+ *           screen-blended into the page
+ *   light - #fafafa, because the shader outputs premultiplied alpha and lets
+ *           the page show through its shadows
+ *
+ * Any other background will look subtly wrong, so the tokens live here and the
+ * page just uses them.
+ */
+:root {
+  color-scheme: light dark;
+  --page-background: #fafafa;
+  --page-foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-background: #000;
+    --page-foreground: #ededed;
+  }
+}
+
+/* Explicit override: set `data-theme` on <html> to pin the scheme. */
+html[data-theme="light"] {
+  color-scheme: light;
+  --page-background: #fafafa;
+  --page-foreground: #171717;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --page-background: #000;
+  --page-foreground: #ededed;
+}
+
+@theme inline {
+  --color-background: var(--page-background);
+  --color-foreground: var(--page-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--page-background);
+  color: var(--page-foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
