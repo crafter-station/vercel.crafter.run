@@ -1,0 +1,126 @@
+/*
+ * A solid pill pinned to a corner of the viewport.
+ *
+ * The page is almost entirely black with one bright shape in the middle, so a
+ * ghost button disappears into it - this inverts the page colours instead,
+ * which is the only treatment that reliably reads against both the dark ground
+ * and the light one.
+ *
+ * It waits for the hero intro before appearing, so it arrives rather than
+ * competing with the animation. Every pill shares the same delay, so however
+ * many corners are occupied they land together as one row of chrome.
+ */
+
+.pill {
+  position: fixed;
+  z-index: 10;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 11px 20px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+
+  /* Inverted against the page: white on black, black on white. */
+  background: var(--page-foreground);
+  color: var(--page-background);
+
+  font-size: 14px;
+  font-weight: 500;
+  /*
+   * A 16px line box rather than `1` (14px): icons in here are 16px, and the
+   * tallest flex item sets the pill's height. Fixing the line box at the icon
+   * size keeps every pill the same height whether or not it holds an icon.
+   */
+  line-height: 16px;
+  text-decoration: none;
+  white-space: nowrap;
+
+  /* Lifts the pill off a flat black background. */
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.2),
+    0 8px 24px rgb(0 0 0 / 0.28);
+
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    opacity 150ms ease;
+
+  /* The hero intro settles at roughly 1.6s; arrive just after it. */
+  animation: corner-pill-in 420ms cubic-bezier(0.16, 1, 0.3, 1) 1.5s backwards;
+}
+
+/* Logical corners, so the layout mirrors correctly in right-to-left documents. */
+.topEnd {
+  inset-block-start: 28px;
+  inset-inline-end: 28px;
+}
+
+.bottomStart {
+  inset-block-end: 28px;
+  inset-inline-start: 28px;
+}
+
+.bottomEnd {
+  inset-block-end: 28px;
+  inset-inline-end: 28px;
+}
+
+/*
+ * Opt-in nudge for an icon that points out of the pill (an arrow, a chevron).
+ * Icons that are just marks should not use it - a star that slides sideways on
+ * hover reads as broken.
+ */
+.trailingIcon {
+  translate: 0;
+  transition: translate 150ms ease;
+}
+
+.pill:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.22),
+    0 12px 32px rgb(0 0 0 / 0.34);
+}
+
+.pill:hover .trailingIcon {
+  translate: 3px 0;
+}
+
+.pill:active {
+  transform: translateY(0);
+}
+
+.pill:focus-visible {
+  outline: 2px solid #0090ff;
+  outline-offset: 3px;
+}
+
+@keyframes corner-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill,
+  .trailingIcon {
+    animation: none;
+    transition: none;
+  }
+
+  .pill:hover {
+    transform: none;
+  }
+
+  .pill:hover .trailingIcon {
+    translate: 0;
+  }
+}
