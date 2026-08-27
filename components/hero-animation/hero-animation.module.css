@@ -1,0 +1,184 @@
+/*
+ * Layout and colour for the hero animation.
+ *
+ * Plain CSS Modules rather than utility classes, for two reasons: the component
+ * is meant to drop into any project, and the exact sizes here are part of the
+ * artwork (the canvas is authored at a fixed aspect ratio, so the numbers are
+ * not arbitrary spacing values).
+ *
+ * ## Sizing model
+ *
+ * The canvas is a fixed 3:2 stage, centred and allowed to overhang its
+ * container - the glow is supposed to run off the edges. Two size steps mirror
+ * the upstream `@md` / `@lg` container breakpoints, and they are container
+ * queries against `.root`, so the animation adapts to its own box rather than
+ * to the viewport.
+ *
+ * The `svh` caps stop the stage growing taller than the screen on short
+ * landscape windows, where the ▲ would otherwise be cropped.
+ *
+ * ## Public custom properties
+ *
+ * | property                                    | default   | effect                            |
+ * | ------------------------------------------- | --------- | --------------------------------- |
+ * | `--hero-animation-scale`                    | `1.2`     | zoom of the stage                 |
+ * | `--hero-animation-offset-y`                 | `2.5%`    | vertical nudge of the stage       |
+ * | `--hero-animation-fade-ms`                  | `300ms`   | canvas / placeholder cross-fade   |
+ * | `--hero-animation-dot-loading-dark`         | `#000`    | placeholder dot, dark, pre-load   |
+ * | `--hero-animation-dot-unavailable-dark`     | `#2e2e2e` | placeholder dot, dark, no WebGL   |
+ * | `--hero-animation-dot-light`                | `#9e9e9e` | placeholder dot, light            |
+ */
+
+/* ------------------------------------------------------------------------ */
+/* Layout                                                                    */
+/* ------------------------------------------------------------------------ */
+
+.root {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  /* Makes `.root` the query container for the two size steps below. */
+  container-type: inline-size;
+  /* The stage is wider than most viewports; never let it scroll the page. */
+  overflow: clip;
+  /* The hero is decorative - clicks belong to whatever sits on top of it. */
+  pointer-events: none;
+}
+
+/*
+ * The artistic transform, kept on its own element so the stage's centring maths
+ * stays independent of it.
+ */
+.layout {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+  transform: translateY(var(--hero-animation-offset-y, 2.5%))
+    scale(var(--hero-animation-scale, 1.2));
+  pointer-events: none;
+}
+
+/* Both the SVG placeholder and the canvas occupy exactly this box. */
+.stage {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  translate: -50% -50%;
+  z-index: 0;
+  block-size: min(840px, 100svh);
+  inline-size: min(1260px, 150svh);
+  max-inline-size: none;
+  pointer-events: none;
+  transition: opacity var(--hero-animation-fade-ms, 300ms) ease-out;
+}
+
+.stage[data-visible="false"] {
+  opacity: 0;
+}
+
+.stage[data-visible="true"] {
+  opacity: 1;
+}
+
+@container (min-width: 601px) {
+  .stage {
+    block-size: min(945px, 100svh);
+    inline-size: min(1417.5px, 150svh);
+  }
+}
+
+@container (min-width: 961px) {
+  .stage {
+    block-size: 945px;
+    inline-size: 1417.5px;
+    /* Optically centres the ▲ against a header-topped page. */
+    inset-block-start: calc(50% - 20px);
+  }
+}
+
+/*
+ * The canvas carries `.stage` too, so its box is already the right size - it
+ * must NOT be stretched to its parent, or the fixed 3:2 virtual space would be
+ * sampled through the wrong aspect ratio and the light field would smear.
+ */
+.canvas {
+  display: block;
+  max-inline-size: none;
+  mix-blend-mode: var(--ha-blend);
+}
+
+.fallbackDots {
+  color: var(--ha-dot);
+}
+
+.root[data-unavailable="true"] .fallbackDots {
+  color: var(--ha-dot-unavailable);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Colour scheme                                                             */
+/*                                                                           */
+/* Resolved entirely in CSS, so the first paint is already correct - the      */
+/* shader's own light/dark switch only matters once the canvas is live.       */
+/*                                                                           */
+/* Every rule below sets the same three private variables, so the cascade is  */
+/* resolved exactly once and the rules above never have to be duplicated.     */
+/*                                                                           */
+/*   --ha-blend            dark screen-blends the canvas so its near-black    */
+/*                         ground disappears into the page; light outputs     */
+/*                         premultiplied alpha and must composite normally    */
+/*   --ha-dot              placeholder dot while the shader is still loading  */
+/*   --ha-dot-unavailable  placeholder dot once we know it never will         */
+/* ------------------------------------------------------------------------ */
+
+/* Light is the base case. */
+.root {
+  --ha-blend: normal;
+  --ha-dot: var(--hero-animation-dot-light, #9e9e9e);
+  --ha-dot-unavailable: var(--hero-animation-dot-light, #9e9e9e);
+}
+
+@media (prefers-color-scheme: dark) {
+  .root {
+    --ha-blend: screen;
+    /* Invisible on purpose: no flash before the LEDs light. */
+    --ha-dot: var(--hero-animation-dot-loading-dark, #000);
+    --ha-dot-unavailable: var(--hero-animation-dot-unavailable-dark, #2e2e2e);
+  }
+}
+
+/* An explicit page theme (next-themes, Geist, or a plain data attribute). */
+:global(html[data-theme="dark"]) .root,
+:global(html.dark-theme) .root,
+:global(html.dark) .root {
+  --ha-blend: screen;
+  --ha-dot: var(--hero-animation-dot-loading-dark, #000);
+  --ha-dot-unavailable: var(--hero-animation-dot-unavailable-dark, #2e2e2e);
+}
+
+:global(html[data-theme="light"]) .root,
+:global(html.light-theme) .root,
+:global(html.light) .root {
+  --ha-blend: normal;
+  --ha-dot: var(--hero-animation-dot-light, #9e9e9e);
+  --ha-dot-unavailable: var(--hero-animation-dot-light, #9e9e9e);
+}
+
+/* A `colorScheme` prop overrides everything above. */
+.root[data-color-scheme="dark"] {
+  --ha-blend: screen;
+  --ha-dot: var(--hero-animation-dot-loading-dark, #000);
+  --ha-dot-unavailable: var(--hero-animation-dot-unavailable-dark, #2e2e2e);
+}
+
+.root[data-color-scheme="light"] {
+  --ha-blend: normal;
+  --ha-dot: var(--hero-animation-dot-light, #9e9e9e);
+  --ha-dot-unavailable: var(--hero-animation-dot-light, #9e9e9e);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage {
+    transition: none;
+  }
+}
