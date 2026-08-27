@@ -1,0 +1,668 @@
+/*
+ * Playground chrome.
+ *
+ * Deliberately quiet: the animation is the subject, so the panel stays a flat
+ * neutral surface with one accent. Everything numeric is tabular so sliders do
+ * not shift the layout as values change.
+ *
+ * Colours are derived from the page tokens in `app/globals.css` rather than
+ * redefined, so the panel follows the same light/dark switch as the hero.
+ */
+
+.root {
+  --pg-panel: color-mix(in srgb, var(--page-foreground) 4%, var(--page-background));
+  --pg-border: color-mix(in srgb, var(--page-foreground) 14%, transparent);
+  --pg-muted: color-mix(in srgb, var(--page-foreground) 55%, transparent);
+  --pg-quiet: color-mix(in srgb, var(--page-foreground) 40%, transparent);
+  --pg-accent: #0090ff;
+  --pg-track: color-mix(in srgb, var(--page-foreground) 16%, transparent);
+
+  display: grid;
+  grid-template-columns: 1fr;
+  min-block-size: 100svh;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (min-width: 1040px) {
+  .root {
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
+}
+
+/* ---------------------------------------------------------------- stage -- */
+
+.stage {
+  position: relative;
+  block-size: 55svh;
+  min-block-size: 320px;
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: var(--page-background);
+  border-block-end: 1px solid var(--pg-border);
+  overflow: clip;
+}
+
+@media (min-width: 1040px) {
+  .stage {
+    block-size: 100svh;
+    border-block-end: none;
+    border-inline-end: 1px solid var(--pg-border);
+  }
+}
+
+/* Guides sit in the stage's own 1200 × 800 box, on top of the canvas. */
+.guides {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.guideGrid line {
+  stroke: color-mix(in srgb, var(--page-foreground) 18%, transparent);
+  stroke-width: 1;
+}
+
+.guideCaption,
+.guideDotLabel,
+.guideEdgeLabel {
+  fill: var(--page-foreground);
+  font-family: var(--font-mono), monospace;
+  font-size: 13px;
+}
+
+.guideEdgeLabel {
+  text-anchor: middle;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--page-background);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.guideCaption {
+  fill: var(--pg-muted);
+}
+
+.guideDotLabel {
+  text-anchor: start;
+  font-size: 13px;
+  paint-order: stroke;
+  stroke: var(--page-background);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.guideDot {
+  fill: none;
+  stroke: var(--pg-accent);
+  stroke-width: 1.5;
+}
+
+[data-active="true"] > .guideDot {
+  stroke: #ffb224;
+  stroke-width: 3;
+}
+
+[data-active="true"] + .guideDotLabel,
+[data-active="true"] > .guideDotLabel {
+  fill: #ffb224;
+}
+
+.guideHoverRadius {
+  fill: none;
+  stroke: color-mix(in srgb, var(--pg-accent) 45%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 8;
+}
+
+.guideHoverRadius[data-active="true"] {
+  stroke: #ffb224;
+  stroke-dasharray: none;
+}
+
+.guideTriangle {
+  fill: color-mix(in srgb, var(--pg-accent) 8%, transparent);
+  stroke: var(--pg-accent);
+  stroke-width: 2;
+}
+
+.guideRamp {
+  fill: none;
+  stroke: color-mix(in srgb, #ffb224 12%, transparent);
+}
+
+.guideQuad {
+  fill: color-mix(in srgb, #e93d82 12%, transparent);
+  stroke: #e93d82;
+  stroke-width: 1;
+}
+
+/* ------------------------------------------------------------ telemetry -- */
+
+.telemetry {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px 14px;
+  background: linear-gradient(to top, var(--page-background) 55%, transparent);
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+}
+
+.telemetryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 2px 8px;
+  border: 1px solid var(--pg-border);
+  border-radius: 999px;
+  color: var(--pg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10px;
+}
+
+.chip[data-running="true"] {
+  border-color: color-mix(in srgb, #30a46c 60%, transparent);
+  color: #30a46c;
+}
+
+.telemetryStat {
+  display: inline-flex;
+  gap: 6px;
+  color: var(--page-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.telemetryStat em {
+  color: var(--pg-quiet);
+  font-style: normal;
+}
+
+.meters {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  block-size: 44px;
+  /* 10 bars at 34px + 9 gaps at 4px - keeps the rest line from overhanging. */
+  max-inline-size: 376px;
+}
+
+/* Rest weight (1.0) on a 0-3 scale. */
+.meterRestLine {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 33.33%;
+  border-block-start: 1px dashed color-mix(in srgb, var(--page-foreground) 35%, transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.meterLabels {
+  display: flex;
+  gap: 4px;
+  max-inline-size: 376px;
+}
+
+.meterLabels em {
+  flex: 1;
+  max-inline-size: 34px;
+  text-align: center;
+  font-style: normal;
+  font-size: 9px;
+  color: var(--pg-quiet);
+}
+
+.meterLabels em[data-hovered="true"] {
+  color: #ffb224;
+}
+
+.meter {
+  position: relative;
+  flex: 1;
+  max-inline-size: 34px;
+  block-size: 100%;
+  background: var(--pg-track);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.meterFill {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  background: var(--pg-accent);
+  /* No transition: this must read as the renderer's real state, not a UI ease. */
+}
+
+.meter[data-hovered="true"] .meterFill {
+  background: #ffb224;
+}
+
+.telemetryCaption {
+  margin: 0;
+  color: var(--pg-quiet);
+}
+
+/*
+ * On a narrow screen the stage is short and the telemetry was covering the ▲.
+ * Drop to a single compact row: the numbers still tell the story, and the
+ * explanation is a scroll away in the panel.
+ */
+@media (max-width: 1039px) {
+  .stage {
+    block-size: 62svh;
+  }
+
+  .telemetry {
+    gap: 6px;
+    padding: 8px 12px 10px;
+  }
+
+  .meters {
+    block-size: 26px;
+  }
+
+  .telemetryCaption {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- panel -- */
+
+.panel {
+  min-inline-size: 0;
+  background: var(--pg-panel);
+  padding-block-end: 64px;
+}
+
+.panelHeader {
+  padding: 24px 20px 20px;
+  border-block-end: 1px solid var(--pg-border);
+}
+
+.title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--pg-muted);
+  text-wrap: pretty;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+  margin-block-start: 14px;
+}
+
+/* -------------------------------------------------------------- sections -- */
+
+.section {
+  border-block-end: 1px solid var(--pg-border);
+}
+
+.sectionSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 20px;
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+  user-select: none;
+}
+
+.sectionSummary::-webkit-details-marker {
+  display: none;
+}
+
+.sectionSummary:hover {
+  background: color-mix(in srgb, var(--page-foreground) 3%, transparent);
+}
+
+.chevron {
+  color: var(--pg-quiet);
+  transition: rotate 150ms ease;
+}
+
+.section[open] .chevron {
+  rotate: 180deg;
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 20px 20px;
+}
+
+.note {
+  margin: 0;
+  color: var(--pg-muted);
+  text-wrap: pretty;
+}
+
+.noteQuiet {
+  margin: 0;
+  color: var(--pg-quiet);
+  font-size: 12px;
+  text-wrap: pretty;
+}
+
+.subGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 4px 12px;
+}
+
+.subGroupTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--pg-quiet);
+}
+
+/* -------------------------------------------------------------- controls -- */
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.controlLabel {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--page-foreground);
+}
+
+.controlValue {
+  font-family: var(--font-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--pg-muted);
+}
+
+.unit {
+  margin-inline-start: 2px;
+  color: var(--pg-quiet);
+}
+
+.range {
+  inline-size: 100%;
+  block-size: 18px;
+  accent-color: var(--pg-accent);
+  cursor: pointer;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.toggle input {
+  margin-block-start: 2px;
+  accent-color: var(--pg-accent);
+  cursor: pointer;
+}
+
+.toggleNote {
+  display: block;
+  color: var(--pg-quiet);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.segmented {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--pg-track);
+  border-radius: 7px;
+}
+
+.segment {
+  flex: 1;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--pg-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.segment:hover {
+  color: var(--page-foreground);
+}
+
+.segment[aria-pressed="true"] {
+  background: var(--page-background);
+  color: var(--page-foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.action {
+  padding: 6px 11px;
+  border: 1px solid var(--pg-border);
+  border-radius: 7px;
+  background: var(--page-background);
+  color: var(--page-foreground);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.action:hover {
+  border-color: color-mix(in srgb, var(--page-foreground) 30%, transparent);
+}
+
+.action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ledPicker {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.led {
+  padding: 6px 0;
+  border: 1px solid var(--pg-border);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--pg-muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.led:hover {
+  color: var(--page-foreground);
+  border-color: color-mix(in srgb, var(--page-foreground) 30%, transparent);
+}
+
+.led[aria-pressed="true"] {
+  border-color: var(--pg-accent);
+  color: var(--pg-accent);
+}
+
+/* ----------------------------------------------------------------- chart -- */
+
+.chartFigure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chart {
+  inline-size: 100%;
+  block-size: auto;
+  overflow: visible;
+}
+
+.chartBand {
+  fill: color-mix(in srgb, var(--pg-accent) 7%, transparent);
+}
+
+.chartBandAlt {
+  fill: color-mix(in srgb, var(--page-foreground) 5%, transparent);
+}
+
+.chartAxis {
+  stroke: var(--pg-border);
+  stroke-width: 1;
+}
+
+.chartTick,
+.chartPhase {
+  fill: var(--pg-quiet);
+  font-family: var(--font-mono), monospace;
+  font-size: 9px;
+}
+
+.chartTick {
+  text-anchor: end;
+}
+
+.chartPhase {
+  text-anchor: middle;
+}
+
+.chartLine {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  transition: opacity 150ms ease;
+}
+
+.chartLine[data-dim="true"] {
+  opacity: 0.18;
+}
+
+.chartPlayhead {
+  stroke: #ffb224;
+  stroke-width: 1.5;
+}
+
+.chartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  color: var(--pg-quiet);
+}
+
+.chartLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: opacity 150ms ease;
+}
+
+.chartLegendItem[data-dim="true"] {
+  opacity: 0.3;
+}
+
+.chartLegendItem i {
+  inline-size: 8px;
+  block-size: 2px;
+  border-radius: 1px;
+}
+
+/* ----------------------------------------------------------------- atlas -- */
+
+.atlas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.atlasFrame {
+  /* The atlas is authored against black; a checker or white ground would lie. */
+  background: #000;
+  border: 1px solid var(--pg-border);
+  border-radius: 8px;
+  overflow: clip;
+}
+
+.atlasCanvas {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+/* -------------------------------------------------------------- pipeline -- */
+
+.pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: pass;
+}
+
+.pass {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.passIndex {
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  border: 1px solid var(--pg-border);
+  border-radius: 50%;
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  color: var(--pg-muted);
+}
+
+.passName {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.passName em {
+  font-family: var(--font-mono), monospace;
+  font-size: 10px;
+  font-style: normal;
+  color: var(--pg-quiet);
+}
